@@ -57,6 +57,8 @@ def main():
     # 默认配置
     default_config = {
         'data': {
+            'dataset_type': 'custom',  # 数据集类型: custom, ETTh1, ETTh2, ETTm1, ETTm2
+            'data_path': None,         # 数据文件路径
             'sequence_length': 24,
             'forecast_horizon': 1
         },
@@ -84,22 +86,42 @@ def main():
     
     # 1. 数据加载
     print("1. 加载数据...")
-    data_loader = PowerLoadDataLoader()
-    raw_data = data_loader.load_data()
-    print(f"原始数据形状: {raw_data.shape}")
+    data_loader = PowerLoadDataLoader(
+        dataset_type=config['data']['dataset_type'],
+        data_path=config['data']['data_path']
+    )
+    
+    try:
+        features, target = data_loader.load_data()
+        print(f"特征数据形状: {features.shape}")
+        print(f"目标数据形状: {target.shape}")
+        
+        # 显示数据集信息
+        dataset_info = data_loader.get_dataset_info()
+        print(f"数据集类型: {dataset_info['dataset_name']}")
+        print(f"数据集大小: {dataset_info['shape']}")
+        print(f"目标列: {dataset_info['target_column']}")
+    except Exception as e:
+        print(f"数据加载失败: {e}")
+        return
     
     # 2. 数据预处理
     print("\n2. 数据预处理...")
     preprocessor = PowerLoadPreprocessor()
     
+    # 合并特征和目标数据用于预处理
+    raw_data = features.copy()
+    target_col = target.columns[0]
+    raw_data[target_col] = target[target_col]
+    
     # 创建时间特征
     processed_data = preprocessor.create_time_features(raw_data)
     
     # 创建滞后特征
-    processed_data = preprocessor.create_lag_features(processed_data)
+    processed_data = preprocessor.create_lag_features(processed_data, target_column=target_col)
     
     # 创建滚动统计特征
-    processed_data = preprocessor.create_rolling_features(processed_data)
+    processed_data = preprocessor.create_rolling_features(processed_data, target_column=target_col)
     
     # 删除包含NaN的行
     processed_data = processed_data.dropna().reset_index(drop=True)

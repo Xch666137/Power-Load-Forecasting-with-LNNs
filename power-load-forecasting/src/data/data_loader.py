@@ -4,6 +4,8 @@
 import pandas as pd
 import numpy as np
 from typing import Tuple, Optional
+from .data_interface import BaseDataset
+from .data_factory import DatasetFactory
 
 
 class PowerLoadDataLoader:
@@ -11,67 +13,48 @@ class PowerLoadDataLoader:
     电力负荷数据加载器
     """
     
-    def __init__(self, data_path: Optional[str] = None):
+    def __init__(self, dataset_type: str = 'custom', **dataset_kwargs):
         """
         初始化数据加载器
         
         Args:
-            data_path: 数据文件路径
+            dataset_type: 数据集类型
+            **dataset_kwargs: 数据集参数
         """
-        self.data_path = data_path
-        self.data = None
+        self.dataset_type = dataset_type
+        self.dataset_kwargs = dataset_kwargs
+        self.dataset: Optional[BaseDataset] = None
     
-    def load_data(self) -> pd.DataFrame:
+    def load_data(self) -> Tuple[pd.DataFrame, pd.DataFrame]:
         """
         加载电力负荷数据
         
         Returns:
-            DataFrame: 电力负荷数据
+            Tuple[pd.DataFrame, pd.DataFrame]: 特征数据和目标数据
         """
-        if self.data_path:
-            # 根据文件扩展名选择加载方式
-            if self.data_path.endswith('.csv'):
-                self.data = pd.read_csv(self.data_path)
-            elif self.data_path.endswith('.xlsx') or self.data_path.endswith('.xls'):
-                self.data = pd.read_excel(self.data_path)
-            else:
-                raise ValueError("Unsupported file format")
-        else:
-            # 生成示例数据
-            self.data = self._generate_sample_data()
-            
-        return self.data
+        # 使用工厂模式创建数据集实例
+        self.dataset = DatasetFactory.create_dataset(self.dataset_type, **self.dataset_kwargs)
+        
+        # 加载数据
+        features, target = self.dataset.load_data()
+        
+        return features, target
     
-    def _generate_sample_data(self) -> pd.DataFrame:
+    def get_dataset_info(self) -> dict:
         """
-        生成示例电力负荷数据
+        获取数据集信息
         
         Returns:
-            DataFrame: 示例电力负荷数据
+            dict: 数据集信息
         """
-        # 生成时间序列数据（以小时为单位，生成30天的数据）
-        dates = pd.date_range('2023-01-01', periods=30*24, freq='H')
-        
-        # 模拟电力负荷数据（包含趋势、周期性和噪声）
-        np.random.seed(42)
-        trend = np.linspace(1000, 1200, len(dates))  # 长期趋势
-        daily_pattern = 500 * np.sin(2 * np.pi * np.arange(len(dates)) / 24)  # 日周期性
-        weekly_pattern = 200 * np.sin(2 * np.pi * np.arange(len(dates)) / (24*7))  # 周周期性
-        noise = np.random.normal(0, 50, len(dates))  # 随机噪声
-        
-        load = trend + daily_pattern + weekly_pattern + noise
-        
-        # 创建DataFrame
-        data = pd.DataFrame({
-            'datetime': dates,
-            'load': load
-        })
-        
-        return data
+        if self.dataset is None:
+            self.load_data()
+            
+        return self.dataset.get_data_info()
     
     def get_transformer_load_data(self, transformer_id: str) -> pd.DataFrame:
         """
-        获取特定变压器的负荷数据
+        获取特定变压器的负荷数据（保持向后兼容）
         
         Args:
             transformer_id: 变压器ID
@@ -79,25 +62,29 @@ class PowerLoadDataLoader:
         Returns:
             DataFrame: 变压器负荷数据
         """
-        # 在实际应用中，这里会根据变压器ID筛选数据
-        # 目前我们使用所有数据作为示例
-        if self.data is None:
-            self.load_data()
-            
+        # 加载数据
+        features, target = self.load_data()
+        
+        # 合并特征和目标数据
+        data = features.copy()
+        target_col = target.columns[0]
+        data[target_col] = target[target_col]
+        
         # 添加变压器ID列（示例）
-        self.data['transformer_id'] = transformer_id
-        return self.data
+        data['transformer_id'] = transformer_id
+        return data
 
 
-def load_power_data(data_path: Optional[str] = None) -> pd.DataFrame:
+def load_power_data(dataset_type: str = 'custom', **dataset_kwargs) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
     加载电力负荷数据的便捷函数
     
     Args:
-        data_path: 数据文件路径
+        dataset_type: 数据集类型
+        **dataset_kwargs: 数据集参数
         
     Returns:
-        DataFrame: 电力负荷数据
+        Tuple[pd.DataFrame, pd.DataFrame]: 特征数据和目标数据
     """
-    loader = PowerLoadDataLoader(data_path)
+    loader = PowerLoadDataLoader(dataset_type, **dataset_kwargs)
     return loader.load_data()

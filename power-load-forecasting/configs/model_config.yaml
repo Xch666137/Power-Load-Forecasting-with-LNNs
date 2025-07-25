@@ -1,6 +1,12 @@
 # 液态神经网络电力负荷预测模型配置
 
 data:
+  # 数据集类型: custom, ETTh1, ETTh2, ETTm1, ETTm2
+  dataset_type: "custom"
+  
+  # 数据文件路径 (对于ETT数据集，应指向相应的csv文件)
+  data_path: null
+  
   # 序列长度（历史时间步数）
   sequence_length: 24
   
