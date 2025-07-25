@@ -20,8 +20,10 @@ class ExperimentVersionControl:
         Args:
             experiment_dir: 实验目录路径
         """
-        self.experiment_dir = experiment_dir
-        self.version_file = os.path.join(experiment_dir, "experiment_versions.json")
+        self.base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        self.experiment_dir = os.path.join(self.base_path, experiment_dir)
+        self.code_dir = os.path.join(self.experiment_dir, "code")
+        self.version_file = os.path.join(self.experiment_dir, "experiment_versions.json")
         self._ensure_version_file()
     
     def _ensure_version_file(self):
@@ -85,11 +87,11 @@ class ExperimentVersionControl:
             "train.py",
             "evaluate.py", 
             "visualize.py",
-            "run.py"
+            "version_control.py"
         ]
         
         for file_name in experiment_files:
-            file_path = os.path.join(self.experiment_dir, file_name)
+            file_path = os.path.join(self.code_dir, file_name)
             if os.path.exists(file_path):
                 file_hashes[file_name] = self._get_file_hash(file_path)
         

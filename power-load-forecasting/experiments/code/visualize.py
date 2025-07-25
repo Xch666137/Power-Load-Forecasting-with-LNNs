@@ -8,6 +8,9 @@ import sys
 base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, base_path)
 
+# 设置实验结果保存路径
+results_dir = os.path.join(base_path, "experiments", "results")
+
 # 动态导入模块
 def import_from_src(module_name):
     """从src目录导入模块"""
@@ -36,19 +39,22 @@ def visualize_results_task(history, y_test, y_pred):
     """
     print("\n8. 生成可视化结果...")
     
+    # 确保结果目录存在
+    os.makedirs(results_dir, exist_ok=True)
+    
     # 绘制训练历史
     visualization_module = import_from_src("utils.visualization")
     plot_training_history = visualization_module.plot_training_history
-    plot_training_history(history, title="模型训练历史")
+    plot_training_history(history, title="模型训练历史", save_path=os.path.join(results_dir, "training_history.png"))
     
     # 绘制预测结果
     evaluation_module = import_from_src("models.evaluation")
     ModelEvaluator = evaluation_module.ModelEvaluator
     
     evaluator = ModelEvaluator()
-    evaluator.plot_predictions(y_test, y_pred, title="电力负荷预测结果")
+    evaluator.plot_predictions(y_test, y_pred, title="电力负荷预测结果", save_path=os.path.join(results_dir, "prediction_results.png"))
     
     # 绘制误差分布
-    evaluator.plot_error_distribution(y_test, y_pred, title="预测误差分布")
+    evaluator.plot_error_distribution(y_test, y_pred, title="预测误差分布", save_path=os.path.join(results_dir, "error_distribution.png"))
     
-    print("\n可视化完成!")
+    print(f"\n可视化结果已保存到: {results_dir}")

@@ -3,10 +3,14 @@
 """
 import os
 import sys
+import torch
 
 # 添加src目录到Python路径
 base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, base_path)
+
+# 设置实验结果保存路径
+results_dir = os.path.join(base_path, "experiments", "results")
 
 # 动态导入模块
 def import_from_src(module_name):
@@ -63,7 +67,6 @@ def train_model_task(config, X_train, y_train, X_val, y_val):
     training_module = import_from_src("models.training")
     ModelTrainer = training_module.ModelTrainer
     
-    import torch
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"使用设备: {device}")
 
@@ -83,5 +86,11 @@ def train_model_task(config, X_train, y_train, X_val, y_val):
         shuffle=config['training']['shuffle']
     )
 
+    # 保存训练好的模型
+    os.makedirs(results_dir, exist_ok=True)
+    model_save_path = os.path.join(results_dir, "trained_model.pth")
+    torch.save(trainer.model.state_dict(), model_save_path)
+    print(f"模型已保存到: {model_save_path}")
+    
     print("训练完成!")
     return trainer.model, history

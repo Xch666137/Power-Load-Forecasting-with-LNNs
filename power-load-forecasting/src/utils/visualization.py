@@ -6,6 +6,10 @@ import seaborn as sns
 import numpy as np
 import pandas as pd
 from typing import Optional, List, Dict, Any
+import os
+
+# 设置默认保存路径
+DEFAULT_SAVE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "experiments", "results")
 
 
 def setup_visualization_style():
@@ -53,7 +57,17 @@ def plot_time_series(data: pd.DataFrame,
     plt.tight_layout()
     
     if save_path:
+        # 确保保存目录存在
+        save_dir = os.path.dirname(save_path)
+        if save_dir and not os.path.exists(save_dir):
+            os.makedirs(save_dir)
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    elif DEFAULT_SAVE_DIR:
+        # 如果未指定保存路径但有默认路径，则保存到默认路径
+        if not os.path.exists(DEFAULT_SAVE_DIR):
+            os.makedirs(DEFAULT_SAVE_DIR)
+        default_save_path = os.path.join(DEFAULT_SAVE_DIR, f"{title.replace(' ', '_')}.png")
+        plt.savefig(default_save_path, dpi=300, bbox_inches='tight')
     
     plt.show()
 
@@ -97,7 +111,17 @@ def plot_multiple_time_series(data: pd.DataFrame,
     plt.tight_layout()
     
     if save_path:
+        # 确保保存目录存在
+        save_dir = os.path.dirname(save_path)
+        if save_dir and not os.path.exists(save_dir):
+            os.makedirs(save_dir)
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    elif DEFAULT_SAVE_DIR:
+        # 如果未指定保存路径但有默认路径，则保存到默认路径
+        if not os.path.exists(DEFAULT_SAVE_DIR):
+            os.makedirs(DEFAULT_SAVE_DIR)
+        default_save_path = os.path.join(DEFAULT_SAVE_DIR, f"{title.replace(' ', '_')}.png")
+        plt.savefig(default_save_path, dpi=300, bbox_inches='tight')
     
     plt.show()
 
@@ -127,7 +151,17 @@ def plot_correlation_matrix(data: pd.DataFrame,
     plt.tight_layout()
     
     if save_path:
+        # 确保保存目录存在
+        save_dir = os.path.dirname(save_path)
+        if save_dir and not os.path.exists(save_dir):
+            os.makedirs(save_dir)
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    elif DEFAULT_SAVE_DIR:
+        # 如果未指定保存路径但有默认路径，则保存到默认路径
+        if not os.path.exists(DEFAULT_SAVE_DIR):
+            os.makedirs(DEFAULT_SAVE_DIR)
+        default_save_path = os.path.join(DEFAULT_SAVE_DIR, f"{title.replace(' ', '_')}.png")
+        plt.savefig(default_save_path, dpi=300, bbox_inches='tight')
     
     plt.show()
 
@@ -170,7 +204,17 @@ def plot_feature_importance(feature_names: List[str],
     plt.tight_layout()
     
     if save_path:
+        # 确保保存目录存在
+        save_dir = os.path.dirname(save_path)
+        if save_dir and not os.path.exists(save_dir):
+            os.makedirs(save_dir)
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    elif DEFAULT_SAVE_DIR:
+        # 如果未指定保存路径但有默认路径，则保存到默认路径
+        if not os.path.exists(DEFAULT_SAVE_DIR):
+            os.makedirs(DEFAULT_SAVE_DIR)
+        default_save_path = os.path.join(DEFAULT_SAVE_DIR, f"{title.replace(' ', '_')}.png")
+        plt.savefig(default_save_path, dpi=300, bbox_inches='tight')
     
     plt.show()
 
@@ -209,7 +253,17 @@ def plot_training_history(history: Dict[str, List[float]],
     plt.tight_layout()
     
     if save_path:
+        # 确保保存目录存在
+        save_dir = os.path.dirname(save_path)
+        if save_dir and not os.path.exists(save_dir):
+            os.makedirs(save_dir)
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    elif DEFAULT_SAVE_DIR:
+        # 如果未指定保存路径但有默认路径，则保存到默认路径
+        if not os.path.exists(DEFAULT_SAVE_DIR):
+            os.makedirs(DEFAULT_SAVE_DIR)
+        default_save_path = os.path.join(DEFAULT_SAVE_DIR, f"{title.replace(' ', '_')}.png")
+        plt.savefig(default_save_path, dpi=300, bbox_inches='tight')
     
     plt.show()
 
@@ -257,6 +311,16 @@ def plot_prediction_intervals(y_true: np.ndarray,
     plt.tight_layout()
     
     if save_path:
+        # 确保保存目录存在
+        save_dir = os.path.dirname(save_path)
+        if save_dir and not os.path.exists(save_dir):
+            os.makedirs(save_dir)
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    elif DEFAULT_SAVE_DIR:
+        # 如果未指定保存路径但有默认路径，则保存到默认路径
+        if not os.path.exists(DEFAULT_SAVE_DIR):
+            os.makedirs(DEFAULT_SAVE_DIR)
+        default_save_path = os.path.join(DEFAULT_SAVE_DIR, f"{title.replace(' ', '_')}.png")
+        plt.savefig(default_save_path, dpi=300, bbox_inches='tight')
     
     plt.show()

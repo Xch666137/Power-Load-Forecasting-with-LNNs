@@ -3,10 +3,14 @@
 """
 import os
 import sys
+import json
 
 # 添加src目录到Python路径
 base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, base_path)
+
+# 设置实验结果保存路径
+results_dir = os.path.join(base_path, "experiments", "results")
 
 # 动态导入模块
 def import_from_src(module_name):
@@ -67,5 +71,12 @@ def evaluate_model_task(model, X_test, y_test):
     print("测试集评估结果:")
     for metric, value in metrics.items():
         print(f"  {metric}: {value:.4f}")
+        
+    # 保存评估结果
+    os.makedirs(results_dir, exist_ok=True)
+    metrics_save_path = os.path.join(results_dir, "evaluation_metrics.json")
+    with open(metrics_save_path, 'w', encoding='utf-8') as f:
+        json.dump(metrics, f, ensure_ascii=False, indent=2)
+    print(f"评估指标已保存到: {metrics_save_path}")
         
     return metrics, y_pred
