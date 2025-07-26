@@ -3,11 +3,11 @@
 """
 import os
 import sys
-import torch
 
 # 添加src目录到Python路径
 base_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, base_path)
+if base_path not in sys.path:
+    sys.path.insert(0, base_path)
 
 # 设置实验结果保存路径
 results_dir = os.path.join(base_path, "experiments", "results")
@@ -28,12 +28,12 @@ def train_model_task(config, X_train, y_train, X_val, y_val):
         trained_model: 训练好的模型
         history: 训练历史记录
     """
+    # 直接使用静态导入的函数
+    from src.models.liquid_neural_network import create_liquid_model
+    
     print("\n5. 创建液态神经网络模型...")
     input_size = X_train.shape[2]  # 特征维度
     output_size = y_train.shape[1] if len(y_train.shape) > 1 else 1  # 输出维度
-
-    # 直接使用静态导入的函数
-    from src.models.liquid_neural_network import create_liquid_model
     model = create_liquid_model(
         input_size=input_size,
         hidden_size=config['model']['hidden_size'],

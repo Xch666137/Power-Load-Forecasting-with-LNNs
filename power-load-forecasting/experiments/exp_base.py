@@ -8,7 +8,8 @@ from abc import ABC, abstractmethod
 
 # 添加项目根目录到Python路径
 base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, base_path)
+if base_path not in sys.path:
+    sys.path.insert(0, base_path)
 
 
 class ExpBase(ABC):

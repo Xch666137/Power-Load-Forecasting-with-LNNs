@@ -1,11 +1,11 @@
 """
 实验版本控制模块
 """
+from pathlib import Path
 import os
 import json
 import hashlib
 from datetime import datetime
-from pathlib import Path
 
 
 class ExperimentVersionControl:
@@ -20,10 +20,10 @@ class ExperimentVersionControl:
         Args:
             experiment_dir: 实验目录路径
         """
-        self.base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        self.experiment_dir = os.path.join(self.base_path, experiment_dir)
-        self.code_dir = os.path.join(self.experiment_dir, "code")
-        self.version_file = os.path.join(self.experiment_dir, "experiment_versions.json")
+        self.base_path = Path(__file__).parent.parent
+        self.experiment_dir = self.base_path / experiment_dir
+        self.code_dir = self.experiment_dir / "code"
+        self.version_file = self.experiment_dir / "experiment_versions.json"
         self._ensure_version_file()
     
     def _ensure_version_file(self):
@@ -47,7 +47,10 @@ class ExperimentVersionControl:
         hash_md5 = hashlib.md5()
         try:
             with open(file_path, "rb") as f:
-                for chunk in iter(lambda: f.read(4096), b""):
+                while True:
+                    chunk = f.read(4096)
+                    if not chunk:
+                        break
                     hash_md5.update(chunk)
             return hash_md5.hexdigest()
         except Exception:
@@ -118,6 +121,7 @@ class ExperimentVersionControl:
         # 保存更新后的版本信息
         with open(self.version_file, 'w', encoding='utf-8') as f:
             json.dump(versions, f, ensure_ascii=False, indent=2)
+        print(f"成功更新版本文件: {self.version_file}")
         
         print(f"创建实验版本: {version_id}")
         return version_id
@@ -129,9 +133,12 @@ class ExperimentVersionControl:
         Returns:
             versions: 版本列表
         """
-        with open(self.version_file, 'r', encoding='utf-8') as f:
-            versions = json.load(f)
-        return versions
+        try:
+            with open(self.version_file, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"读取版本文件失败: {e}")
+            return {}
     
     def get_version(self, version_id):
         """
@@ -143,10 +150,13 @@ class ExperimentVersionControl:
         Returns:
             version_info: 版本信息
         """
-        with open(self.version_file, 'r', encoding='utf-8') as f:
-            versions = json.load(f)
-        
-        return versions.get(version_id, None)
+        try:
+            with open(self.version_file, 'r', encoding='utf-8') as f:
+                versions = json.load(f)
+            return versions.get(version_id)
+        except Exception as e:
+            print(f"获取版本信息失败: {e}")
+            return None
     
     def compare_versions(self, version_id1, version_id2):
         """

@@ -2,14 +2,22 @@
 短时预测实验类
 """
 
-import os
 import sys
+import os
+import numpy as np
 
-# 添加项目根目录到Python路径
-base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, base_path)
+# 标准库导入
+from sklearn.model_selection import train_test_split
 
-from exp_base import ExpBase
+# 项目特定导入
+from .exp_base import ExpBase
+from .code import train
+from .code import evaluate
+from .code import visualize
+
+# 使用标准导入
+from src.data.data_loader import load_power_data
+from src.data.preprocessing import preprocess_power_data, PowerLoadPreprocessor
 
 
 class ExpSTSF(ExpBase):
@@ -67,9 +75,31 @@ class ExpSTSF(ExpBase):
             config: 配置参数
         """
         print("\n1-4. 数据加载和预处理...")
-        # 数据加载和预处理将通过动态导入实现
-        data_loader = self.import_from_code("data_loader")
-        X_train, y_train, X_val, y_val, X_test, y_test = data_loader.load_and_preprocess_data(config)
+
+        
+        # 加载数据
+        features, target = load_power_data()
+        
+        # 预处理数据
+        # 注意：这里需要根据实际数据结构调整
+        data = features.copy()
+        # 假设target是单独的一列，我们需要将其添加到数据中
+        if len(target.columns) > 0:
+            target_col = target.columns[0]
+            data[target_col] = target[target_col]
+        
+        processed_data = preprocess_power_data(data)
+        
+        # 准备序列数据
+        preprocessor = PowerLoadPreprocessor()
+        X, y = preprocessor.prepare_sequences(processed_data)
+        
+        # 分割数据集
+        # 先分割出测试集
+        X_temp, X_test, y_temp, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+        # 再从剩余数据中分割出训练集和验证集
+        X_train, X_val, y_train, y_val = train_test_split(X_temp, y_temp, test_size=0.25, random_state=42)  # 0.25 x 0.8 = 0.2
+        
         self.data = {
             "X_train": X_train,
             "y_train": y_train,
@@ -91,8 +121,7 @@ class ExpSTSF(ExpBase):
             history: 训练历史
         """
         print("\n5-6. 模型创建和训练...")
-        # 动态导入train模块
-        from experiments.code import train
+
         
         # 获取训练数据
         X_train = self.data["X_train"]
@@ -116,8 +145,6 @@ class ExpSTSF(ExpBase):
             y_pred: 预测结果
         """
         print("\n7. 模型评估...")
-        # 动态导入evaluate模块
-        from experiments.code import evaluate
         
         # 获取测试数据
         X_test = self.data["X_test"]
@@ -137,8 +164,11 @@ class ExpSTSF(ExpBase):
             y_pred: 预测结果
         """
         print("\n8. 结果可视化...")
-        # 动态导入visualize模块
-        from experiments.code import visualize
+
+        
+        # 获取测试数据
+        X_test = self.data["X_test"]
+        y_test = self.data["y_test"]
         
         # 结果可视化
         visualize.visualize_results_task(history, y_test, y_pred)
@@ -151,6 +181,6 @@ class ExpSTSF(ExpBase):
             config: 配置参数
         """
         print("\n9. 实验版本控制...")
-        from experiments.code import version_control
+        from .code import version_control
         version_id = version_control.ExperimentVersionControl().create_version(config, "短时预测实验")
         print(f"实验版本已创建: {version_id}")
