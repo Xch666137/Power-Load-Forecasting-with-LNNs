@@ -16,8 +16,8 @@ from .code import evaluate
 from .code import visualize
 
 # 使用标准导入
-from src.data.data_loader import load_power_data
-from src.data.preprocessing import preprocess_power_data, PowerLoadPreprocessor
+from src.data_provider.data_loader import load_power_data
+from src.data_provider.preprocessing import preprocess_power_data, PowerLoadPreprocessor
 
 
 class ExpSTSF(ExpBase):

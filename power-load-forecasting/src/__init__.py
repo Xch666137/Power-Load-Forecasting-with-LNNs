@@ -6,13 +6,13 @@ This package contains all the core modules for the power load forecasting projec
 
 # 为方便跨模块导入，导入主要的子模块
 from . import attention
-from . import data
+from . import data_provider
 from . import models
 from . import utils
 
 __all__ = [
     "attention",
-    "data", 
+    "data_provider",
     "models",
     "utils"
 ]

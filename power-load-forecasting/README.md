@@ -1,3 +1,58 @@
+"""
+PyCharm SSH解释器训练脚本
+"""
+import argparse
+import logging
+import os
+import sys
+from pathlib import Path
+
+# 添加项目根目录到Python路径
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
+
+from experiments.exp_STSF import ExpSTSF
+from experiments.exp_model_comparison import ExpModelComparison
+
+# 配置日志
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+def main():
+    parser = argparse.ArgumentParser(description='PyCharm SSH解释器训练脚本')
+    parser.add_argument('--experiment', type=str, default='STSF',
+                        help='实验类型: STSF 或 ModelComparison')
+    parser.add_argument('--config', type=str, default='configs/model_config.yaml',
+                        help='配置文件路径')
+    parser.add_argument('--remote-config', type=str, default='configs/remote_config.yaml',
+                        help='远程配置文件路径')
+    parser.add_argument('--itr', type=int, default=1,
+                        help='实验重复次数')
+    
+    args = parser.parse_args()
+
+    try:
+        if args.experiment == 'STSF':
+            exp_class = ExpSTSF
+        elif args.experiment == 'ModelComparison':
+            exp_class = ExpModelComparison
+        else:
+            raise ValueError(f"未知的实验类型: {args.experiment}")
+        
+        # 初始化实验类
+        exp = exp_class(args)
+        
+        # 运行实验
+        logger.info(f"开始运行 {args.experiment} 实验")
+        exp.run()
+        logger.info(f"{args.experiment} 实验运行完成")
+        
+    except Exception as e:
+        logger.error(f"发生错误: {str(e)}")
+        sys.exit(1)
+
+if __name__ == '__main__':
+    main()
 # 电力负荷时间序列预测系统 - 基于液态神经网络
 
 ## 项目简介
@@ -18,24 +73,27 @@
 
 ```
 power-load-forecasting/
-├── README.md
-├── requirements.txt
-├── .gitignore
-├── run.py
 ├── configs/
-│   └── model_config.yaml
+│   ├── model_config.yaml          # 模型配置文件
+│   └── remote_config.yaml         # 远程训练配置文件
 ├── experiments/
 │   ├── code/
-│   │   ├── __init__.py
 │   │   ├── evaluate.py
 │   │   ├── train.py
 │   │   ├── version_control.py
 │   │   └── visualize.py
 │   ├── results/
 │   │   └── README.md
-│   ├── __init__.py
 │   ├── exp_STSF.py
-│   └── exp_base.py
+│   ├── exp_base.py
+│   └── exp_model_comparison.py
+├── scripts/
+│   ├── cli.py                     # 命令行接口
+│   ├── run_experiment.py          # Python版一键执行脚本
+│   ├── run_experiment.sh          # Shell版一键执行脚本
+│   ├── remote_train.py            # Python版远程训练脚本
+│   ├── remote_train.sh            # Shell版远程训练脚本
+│   └── pycharm_train.py           # PyCharm SSH解释器训练脚本
 ├── notebooks/
 │   └── exploratory_analysis.ipynb
 ├── src/
@@ -152,7 +210,7 @@ power-load-forecasting/
 
 ## 配置文件说明
 
-项目使用YAML格式的配置文件来管理各种参数，包括数据配置、模型配置、训练配置和评估配置。用户可以通过修改[configs/model_config.yaml](configs/model_config.yaml)文件来调整模型参数和训练设置。
+项目使用YAML格式的配置文件来管理各种参数，包括数据配置、模型配置、训练配置和评估配置。用户可以通过修改[configs/model_config.yaml](configs/model_config.yaml)文件来调整模型参数和训练设置。对于远程训练，需要配置[configs/remote_config.yaml](configs/remote_config.yaml)文件。
 
 ### 配置文件结构说明
 
@@ -230,14 +288,17 @@ evaluation:
 
 ## 使用方法
 
-通过运行[run.py](run.py)脚本启动实验：
+### 本地运行
 
 ```bash
-# 运行默认短时预测实验
+# 运行默认实验
 python run.py
 
-# 指定实验类型
+# 运行短时预测实验
 python run.py --experiment STSF
+
+# 运行模型对比实验
+python run.py --experiment ModelComparison
 
 # 指定配置文件
 python run.py --config configs/model_config.yaml

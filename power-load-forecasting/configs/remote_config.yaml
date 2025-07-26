@@ -1,0 +1,38 @@
+# 远程训练配置文件模板
+# 请根据实际情况修改以下配置
+
+# SSH连接配置
+ssh:
+  # 远程服务器用户名
+  user: "your_username"
+  # 远程服务器IP地址或域名
+  host: "your_server_ip"
+  # SSH端口（默认为22）
+  port: 22
+  # SSH私钥文件路径（可选，如果使用密码认证可以留空）
+  identity_file: "~/.ssh/id_rsa"
+  # 远程服务器上的项目路径
+  project_path: "/path/to/power-load-forecasting"
+
+# 远程环境配置
+remote:
+  # Python虚拟环境路径（如果使用）
+  python_venv: "/path/to/venv"
+  # 是否使用GPU
+  use_gpu: true
+  # CUDA相关环境变量（如需要）
+  cuda_env:
+    CUDA_VISIBLE_DEVICES: "0"
+
+# 同步配置
+sync:
+  # 是否在训练前同步代码
+  sync_code: true
+  # 需要排除的文件或目录（使用rsync格式）
+  exclude:
+    - ".git/"
+    - "__pycache__/"
+    - "*.pyc"
+    - ".venv/"
+    - "data/"
+    - "experiments/results/"

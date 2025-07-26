@@ -30,7 +30,7 @@ data:
   rolling_windows: [3, 6, 12, 24]
 
 model:
-  # 模型类型: liquid_ode 或 liquid_lstm
+  # 模型类型: liquid_ode, lstm, liquid_lstm, transformer, informer, lnn_informer
   type: liquid_ode
   
   # 隐藏层大小
@@ -47,6 +47,15 @@ model:
   
   # ODE求解方法 (适用于liquid_ode)
   ode_method: dopri5
+  
+  # LSTM层数 (适用于lstm, liquid_lstm)
+  num_layers: 2
+  
+  # 注意力头数 (适用于transformer, informer, lnn_informer)
+  num_heads: 8
+  
+  # 液态网络隐藏层大小 (适用于lnn_informer)
+  liquid_hidden_size: 32
 
 training:
   # 验证集比例
@@ -58,8 +67,10 @@ training:
 evaluation:
   # 评估指标
   metrics:
-    - MSE
-    - RMSE
     - MAE
+    - RMSE
     - MAPE
+    - NMAE
     - R2
+    - DA
+    - Theil_U

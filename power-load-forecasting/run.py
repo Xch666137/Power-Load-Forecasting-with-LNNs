@@ -2,69 +2,49 @@
 # -*- coding: utf-8 -*-
 
 """
-实验通用入口文件
+电力负荷预测系统入口文件
 """
 
 import os
 import sys
-import argparse
-import yaml
 
 # 添加项目根目录到Python路径
 base_path = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, base_path)
 
-# 静态导入实验模块
-from experiments.exp_STSF import ExpSTSF
-
-def load_config(config_path="configs/model_config.yaml"):
+# 检查是否在远程环境中运行（通过PyCharm SSH解释器）
+def is_remote_execution():
     """
-    加载配置文件
+    检查是否在远程环境执行（如PyCharm SSH解释器）
+    """
+    # 检查环境变量
+    if os.environ.get('SSH_CONNECTION') or os.environ.get('SSH_CLIENT'):
+        return True
     
-    Args:
-        config_path: 配置文件路径
+    # 检查主机名
+    hostname = os.environ.get('HOSTNAME', '')
+    if 'gpu' in hostname.lower() or 'server' in hostname.lower():
+        return True
+    
+    return False
+
+if __name__ == "__main__":
+    # 检查是否通过PyCharm SSH解释器运行
+    if is_remote_execution():
+        print("检测到通过SSH解释器运行，直接执行训练...")
+        # 导入实验类
+        from experiments.exp_STSF import ExpSTSF
+        import yaml
         
-    Returns:
-        config: 配置字典
-    """
-    base_path = os.path.dirname(os.path.abspath(__file__))
-    config_file = os.path.join(base_path, config_path)
-    if os.path.exists(config_file):
-        with open(config_file, 'r', encoding='utf-8') as f:
-            return yaml.safe_load(f)
-    else:
-        print(f"警告: 配置文件 {config_file} 不存在，将使用默认配置")
-        return {}
-
-
-def main():
-    """
-    主函数
-    """
-    base_path = os.path.dirname(os.path.abspath(__file__))
-    
-    parser = argparse.ArgumentParser(description='电力负荷预测实验入口')
-    parser.add_argument('--experiment', '-e', type=str, default='STSF',
-                        help='实验类型: STSF (短时预测)等')
-    parser.add_argument('--config', '-c', type=str, default='configs/model_config.yaml',
-                        help='配置文件路径')
-    
-    args = parser.parse_args()
-    
-    # 加载配置
-    config = load_config(args.config)
-    
-    # 根据实验类型运行相应实验
-    if args.experiment.upper() == 'STSF':
-        print("运行短时预测实验...")
-        # 静态导入实验类
+        # 加载配置
+        config_path = os.path.join(base_path, 'configs', 'model_config.yaml')
+        with open(config_path, 'r', encoding='utf-8') as f:
+            config = yaml.safe_load(f)
+        
+        # 运行实验
         experiment = ExpSTSF()
         experiment.run(config)
     else:
-        print(f"未知实验类型: {args.experiment}")
-        print("支持的实验类型:")
-        print("STSF: 短时预测实验")
-        sys.exit(1)
-
-if __name__ == "__main__":
-    main()
+        # 导入并运行CLI接口
+        from scripts.cli import main
+        main()
