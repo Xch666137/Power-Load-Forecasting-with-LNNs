@@ -18,8 +18,7 @@ if base_path not in sys.path:
 from .exp_base import ExpBase
 from .code import train
 from .code import evaluate
-from src.data_provider.data_loader import load_power_data
-from src.data_provider.preprocessing import preprocess_power_data, PowerLoadPreprocessor
+from src.data_provider.data_loader import data_provider
 
 
 class ExpModelComparison(ExpBase):
@@ -133,35 +132,69 @@ class ExpModelComparison(ExpBase):
         """
         print("\n1-4. 数据加载和预处理...")
 
-        # 加载数据 - 使用ETT数据集
-        features, target = load_power_data(dataset_type="ETTh1")  # 默认使用ETTh1数据集
+        # 创建一个模拟的args对象，用于传递给data_provider
+        class Args:
+            def __init__(self, config):
+                data_config = config.get('data', {})
+                self.root_path = data_config.get('root_path', './data/ETDataset/')
+                self.data = data_config.get('data', 'ETTh1')
+                self.features = data_config.get('features', 'M')
+                self.target = data_config.get('target', 'OT')
+                self.seq_len = data_config.get('seq_len', 96)
+                self.label_len = data_config.get('label_len', 48)
+                self.pred_len = data_config.get('pred_len', 24)
+                self.freq = data_config.get('freq', 'h')
+                self.batch_size = data_config.get('batch_size', 32)
+                self.num_workers = data_config.get('num_workers', 0)
+
+        args = Args(config)
         
-        # 预处理数据
-        data = features.copy()
-        if len(target.columns) > 0:
-            target_col = target.columns[0]
-            data[target_col] = target[target_col]
+        # 加载训练数据
+        train_dataset, train_loader = data_provider(args, 'train')
         
-        processed_data = preprocess_power_data(data)
+        # 加载验证数据
+        val_dataset, val_loader = data_provider(args, 'val')
         
-        # 准备序列数据
-        preprocessor = PowerLoadPreprocessor()
-        X, y = preprocessor.prepare_sequences(processed_data)
-        
-        # 分割数据集
-        # 先分割出测试集
-        X_temp, X_test, y_temp, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-        # 再从剩余数据中分割出训练集和验证集
-        X_train, X_val, y_train, y_val = train_test_split(X_temp, y_temp, test_size=0.25, random_state=42)  # 0.25 x 0.8 = 0.2
+        # 加载测试数据
+        test_dataset, test_loader = data_provider(args, 'test')
         
         self.data = {
+            "train_loader": train_loader,
+            "val_loader": val_loader,
+            "test_loader": test_loader,
+            "train_dataset": train_dataset,
+            "val_dataset": val_dataset,
+            "test_dataset": test_dataset
+        }
+        
+        print(f"训练集大小: {len(train_dataset)}")
+        print(f"验证集大小: {len(val_dataset)}")
+        print(f"测试集大小: {len(test_dataset)}")
+        
+        # 为了适配train_model_task函数，我们需要从数据加载器中提取数据
+        def extract_data_from_loader(loader):
+            X_list, y_list = [], []
+            for batch_x, batch_y, _, _ in loader:
+                X_list.append(batch_x.numpy())
+                y_list.append(batch_y.numpy())
+            X = np.concatenate(X_list, axis=0)
+            y = np.concatenate(y_list, axis=0)
+            return X, y
+        
+        # 提取数据
+        X_train, y_train = extract_data_from_loader(train_loader)
+        X_val, y_val = extract_data_from_loader(val_loader)
+        X_test, y_test = extract_data_from_loader(test_loader)
+        
+        # 更新数据字典
+        self.data.update({
             "X_train": X_train,
             "y_train": y_train,
             "X_val": X_val,
             "y_val": y_val,
             "X_test": X_test,
             "y_test": y_test
-        }
+        })
         
     def _train_model(self, config, model_name):
         """

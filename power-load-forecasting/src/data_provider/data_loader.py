@@ -1,90 +1,121 @@
-"""
-电力负荷数据加载模块
-"""
+import os
 import pandas as pd
 import numpy as np
-from typing import Tuple, Optional
-from .data_interface import BaseDataset
-from .data_factory import DatasetFactory
+import torch
+from torch.utils.data import Dataset, DataLoader
+
+from .data_factory import ETTDataset, StandardScaler
 
 
-class PowerLoadDataLoader:
+def load_dataset(root_path, data_path, flag, size, features, target, scale=True, inverse=False, timeenc=0, freq='h'):
     """
-    电力负荷数据加载器
+    加载ETT数据集
+    
+    参数:
+        root_path (str): 根路径
+        data_path (str): 数据文件路径
+        flag (str): 数据集类型 ('train', 'val', 'test')
+        size (list): [seq_len, label_len, pred_len]
+        features (str): 特征类型 ('S' - 单变量, 'M' - 多变量, 'MS' - 多变量预测单变量)
+        target (str): 目标变量名
+        scale (bool): 是否标准化数据
+        inverse (bool): 是否逆变换输出数据
+        timeenc (int): 时间编码方式 (0: 离散特征, 1: 周期编码)
+        freq (str): 时间频率 ('h' - 小时, 't' - 分钟等)
+    
+    返回:
+        ETTDataset: 数据集对象
     """
-    
-    def __init__(self, dataset_type: str = 'custom', **dataset_kwargs):
-        """
-        初始化数据加载器
-        
-        Args:
-            dataset_type: 数据集类型
-            **dataset_kwargs: 数据集参数
-        """
-        self.dataset_type = dataset_type
-        self.dataset_kwargs = dataset_kwargs
-        self.dataset: Optional[BaseDataset] = None
-    
-    def load_data(self) -> Tuple[pd.DataFrame, pd.DataFrame]:
-        """
-        加载电力负荷数据
-        
-        Returns:
-            Tuple[pd.DataFrame, pd.DataFrame]: 特征数据和目标数据
-        """
-        # 使用工厂模式创建数据集实例
-        self.dataset = DatasetFactory.create_dataset(self.dataset_type, **self.dataset_kwargs)
-        
-        # 加载数据
-        features, target = self.dataset.load_data()
-        
-        return features, target
-    
-    def get_dataset_info(self) -> dict:
-        """
-        获取数据集信息
-        
-        Returns:
-            dict: 数据集信息
-        """
-        if self.dataset is None:
-            self.load_data()
-            
-        return self.dataset.get_data_info()
-    
-    def get_transformer_load_data(self, transformer_id: str) -> pd.DataFrame:
-        """
-        获取特定变压器的负荷数据（保持向后兼容）
-        
-        Args:
-            transformer_id: 变压器ID
-            
-        Returns:
-            DataFrame: 变压器负荷数据
-        """
-        # 加载数据
-        features, target = self.load_data()
-        
-        # 合并特征和目标数据
-        data = features.copy()
-        target_col = target.columns[0]
-        data[target_col] = target[target_col]
-        
-        # 添加变压器ID列（示例）
-        data['transformer_id'] = transformer_id
-        return data
+    dataset = ETTDataset(
+        root_path=root_path,
+        flag=flag,
+        size=size,
+        features=features,
+        data_path=data_path,
+        target=target,
+        scale=scale,
+        inverse=inverse,
+        timeenc=timeenc,
+        freq=freq
+    )
+    return dataset
 
 
-def load_power_data(dataset_type: str = 'custom', **dataset_kwargs) -> Tuple[pd.DataFrame, pd.DataFrame]:
+def get_data_loader(dataset, batch_size, shuffle=True, num_workers=0, drop_last=True):
     """
-    加载电力负荷数据的便捷函数
+    创建数据加载器
     
-    Args:
-        dataset_type: 数据集类型
-        **dataset_kwargs: 数据集参数
-        
-    Returns:
-        Tuple[pd.DataFrame, pd.DataFrame]: 特征数据和目标数据
+    参数:
+        dataset (Dataset): 数据集对象
+        batch_size (int): 批次大小
+        shuffle (bool): 是否打乱数据
+        num_workers (int): 数据加载进程数
+        drop_last (bool): 是否丢弃最后一个不完整的批次
+    
+    返回:
+        DataLoader: 数据加载器对象
     """
-    loader = PowerLoadDataLoader(dataset_type, **dataset_kwargs)
-    return loader.load_data()
+    data_loader = DataLoader(
+        dataset,
+        batch_size=batch_size,
+        shuffle=shuffle,
+        num_workers=num_workers,
+        drop_last=drop_last
+    )
+    return data_loader
+
+
+# 数据集类型映射
+dataset_mapping = {
+    'ETTh1': 'ETT-small/ETTh1.csv',
+    'ETTh2': 'ETT-small/ETTh2.csv',
+    'ETTm1': 'ETT-small/ETTm1.csv',
+    'ETTm2': 'ETT-small/ETTm2.csv',
+}
+
+
+def data_provider(args, flag):
+    """
+    根据参数提供数据集和数据加载器
+    
+    参数:
+        args: 包含数据配置的参数对象
+        flag (str): 数据集类型 ('train', 'val', 'test')
+        
+    返回:
+        tuple: (数据集对象, 数据加载器对象)
+    """
+    # 获取数据文件路径
+    data_path = dataset_mapping.get(args.data, args.data)
+    
+    # 构造数据集大小参数
+    size = [args.seq_len, args.label_len, args.pred_len]
+    
+    # 加载数据集
+    dataset = load_dataset(
+        root_path=args.root_path,
+        data_path=data_path,
+        flag=flag,
+        size=size,
+        features=args.features,
+        target=args.target,
+        scale=True,
+        inverse=False,
+        timeenc=0,
+        freq=args.freq
+    )
+    
+    # 打印数据集信息
+    print(flag, len(dataset))
+    
+    # 创建数据加载器
+    batch_size = args.batch_size if flag == 'train' else 1
+    data_loader = get_data_loader(
+        dataset,
+        batch_size=batch_size,
+        shuffle=True if flag == 'train' else False,
+        num_workers=args.num_workers,
+        drop_last=True if flag == 'train' else False
+    )
+    
+    return dataset, data_loader

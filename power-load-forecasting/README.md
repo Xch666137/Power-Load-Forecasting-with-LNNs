@@ -103,12 +103,11 @@ power-load-forecasting/
 │   │   ├── base_attention.py
 │   │   ├── multihead_attention.py
 │   │   └── prob_attention.py
-│   ├── data/
+│   ├── data_provider/
 │   │   ├── __init__.py
 │   │   ├── data_factory.py
-│   │   ├── data_interface.py
 │   │   ├── data_loader.py
-│   │   └── preprocessing.py
+│   │   └── data_interface.py
 │   ├── models/
 │   │   ├── __init__.py
 │   │   ├── informer.py
@@ -125,9 +124,14 @@ power-load-forecasting/
 │   ├── test_data_loader.py
 │   └── test_models.py
 └── data/
-    ├── raw/
-    ├── processed/
-    └── sample_data/
+    └── ETDataset/
+        ├── README.md
+        ├── README_CN.md
+        └── ETT-small/
+            ├── ETTh1.csv
+            ├── ETTh2.csv
+            ├── ETTm1.csv
+            └── ETTm2.csv
 ```
 
 ## 安装指南
@@ -175,6 +179,22 @@ power-load-forecasting/
 ### 2. 数据加载
 系统支持多种数据集格式，包括ETT小时级数据集(ETTh1, ETTh2)、ETT分钟级数据集(ETTm1, ETTm2)以及自定义数据集。数据加载模块通过工厂模式创建对应的数据加载器实例。
 
+数据加载由[data_provider](file:///F:/PyProgram/power-load-forecasting/src/data_provider)模块负责，该模块包含以下组件：
+
+- [data_factory.py](file:///F:/PyProgram/power-load-forecasting/src/data_provider/data_factory.py)：数据集工厂，用于创建不同类型的ETT数据集实例
+- [data_loader.py](file:///F:/PyProgram/power-load-forecasting/src/data_provider/data_loader.py)：数据加载器，提供PyTorch DataLoader接口
+- [data_interface.py](file:///F:/PyProgram/power-load-forecasting/src/data_provider/data_interface.py)：数据接口定义，定义了统一的数据集接口
+
+ETT数据集包含以下特征列：
+- **date**：时间戳
+- **HUFL**：High UseFul Load (高有用负荷)
+- **HULL**：High UseLess Load (高无用负荷)
+- **MUFL**：Middle UseFul Load (中有用负荷)
+- **MULL**：Middle UseLess Load (中无用负荷)
+- **LUFL**：Low UseFul Load (低有用负荷)
+- **LULL**：Low UseLess Load (低无用负荷)
+- **OT**：Oil Temperature (变压器油温，目标变量)
+
 ### 3. 数据预处理
 数据预处理模块负责特征工程，包括：
 - 时间特征提取（年、月、日、小时、星期等）
@@ -210,42 +230,44 @@ power-load-forecasting/
 
 ## 配置文件说明
 
-项目使用YAML格式的配置文件来管理各种参数，包括数据配置、模型配置、训练配置和评估配置。用户可以通过修改[configs/model_config.yaml](configs/model_config.yaml)文件来调整模型参数和训练设置。对于远程训练，需要配置[configs/remote_config.yaml](configs/remote_config.yaml)文件。
+项目使用YAML格式的配置文件来管理各种参数，包括数据配置、模型配置、训练配置和评估配置。用户可以通过修改[configs/model_config.yaml](configs/model_config.yaml)文件来调整模型参数和训练设置。
 
 ### 配置文件结构说明
 
-```yaml
+```
 data:
-  # 数据集类型: custom, ETTh1, ETTh2, ETTm1, ETTm2
-  dataset_type: "custom"
+  # 数据集根路径
+  root_path: ./data/ETDataset/
   
-  # 数据文件路径 (对于ETT数据集，应指向相应的csv文件)
-  data_path: null
+  # 数据集类型: ETTh1, ETTh2, ETTm1, ETTm2
+  data: ETTh1
   
-  # 序列长度（历史时间步数）
-  sequence_length: 24
+  # 特征类型: S (单变量), M (多变量), MS (多变量预测单变量)
+  features: M
   
-  # 预测步长（未来时间步数）
-  forecast_horizon: 1
+  # 目标变量
+  target: OT
   
-  # 时间特征
-  time_features:
-    - year
-    - month
-    - day
-    - hour
-    - dayofweek
-    - weekend
-    - quarter
+  # 输入序列长度
+  seq_len: 96
   
-  # 滞后特征
-  lag_features: [1, 2, 3, 24, 168]
+  # 标签序列长度
+  label_len: 48
   
-  # 滚动窗口特征
-  rolling_windows: [3, 6, 12, 24]
+  # 预测序列长度
+  pred_len: 24
+  
+  # 数据频率 (h: 小时, t: 分钟)
+  freq: h
+  
+  # 批次大小
+  batch_size: 32
+  
+  # 数据加载进程数
+  num_workers: 0
 
 model:
-  # 模型类型: liquid_ode 或 liquid_lstm
+  # 模型类型: liquid_ode, lstm, liquid_lstm, transformer, informer, lnn_informer
   type: liquid_ode
   
   # 隐藏层大小
@@ -262,6 +284,9 @@ model:
   
   # ODE求解方法 (适用于liquid_ode)
   ode_method: dopri5
+  
+  # LSTM层数 (适用于lstm, liquid_lstm)
+  lstm_layers: 2
 
 training:
   # 验证集比例
@@ -281,9 +306,13 @@ evaluation:
 ```
 
 ### 配置优化建议
-- **序列长度**：应根据数据的周期性选择，通常电力负荷具有24小时和168小时（周周期）的特性
-- **滞后特征**：建议至少包含24小时的滞后特征来捕捉日周期模式
-- **滚动窗口**：选择多个窗口大小可以捕捉不同时间尺度的特征
+- **数据集选择**：ETTh系列为小时级数据，ETTm系列为分钟级数据，根据预测需求选择合适的数据集
+- **特征类型**：
+  - 'S': 单变量预测，仅使用目标变量(OT)进行预测
+  - 'M': 多变量预测，使用所有变量进行预测
+  - 'MS': 多变量预测单变量，使用所有变量预测目标变量
+- **序列长度**：seq_len表示输入序列长度，label_len表示标签序列长度，pred_len表示预测序列长度
+- **数据集参数**：root_path应指向ETT数据集的根目录，data参数指定具体使用的数据集文件
 - **ODE求解方法**：对于液态ODE模型，dopri5是推荐的求解方法，具有良好的精度和效率平衡
 
 ## 使用方法

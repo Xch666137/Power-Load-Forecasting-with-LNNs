@@ -38,6 +38,19 @@ class ProbAttention(nn.Module):
         # 计算采样点
         K_expand = K.unsqueeze(-3).expand(B, H, L_Q, L_K, E)
         index_sample = torch.randint(L_K, (L_Q, sample_k))
+        
+        # 添加维度检查和调试信息
+        assert K_expand.shape[-2] == L_K, \
+            f"K_expand last dimension size {K_expand.shape[-2]} does not match L_K {L_K}"
+        
+        # 添加更详细的错误信息
+        if torch.any(index_sample >= L_K) or torch.any(index_sample < 0):
+            raise ValueError(f"Invalid index_sample range: min={index_sample.min().item()}, "
+                             f"max={index_sample.max().item()}, "
+                             f"valid range=[0, {L_K-1}], "
+                             f"L_K={L_K}, "
+                             f"shape of K_expand={K_expand.shape}")
+        
         K_sample = K_expand[:, :, torch.arange(L_Q).unsqueeze(1), index_sample, :]
         
         # 计算QK
@@ -75,9 +88,28 @@ class ProbAttention(nn.Module):
         B, H, L_V, D = V.shape
 
         if self.mask_flag:
-            attn_mask = torch.ones(L_Q, scores.shape[-1], dtype=torch.bool)
+            # 创建二维attn_mask [L_Q, L_Q]
+            attn_mask = torch.ones(L_Q, L_Q, dtype=torch.bool, device=scores.device)
             attn_mask = torch.triu(attn_mask, diagonal=1)
-            scores.masked_fill_(attn_mask, -np.inf)
+            
+            # 应用掩码到scores，注意scores的维度是[B, H, n_top, L_V]
+            # 其中n_top是index的长度，index的形状是[B, H, n_top]
+            # 我们需要创建一个适用于scores的掩码
+            # scores.shape = [B, H, n_top, L_V]，其中n_top=20, L_V=36
+            # 需要创建一个形状为[B, H, n_top, L_V]的掩码
+            
+            # 从scores的形状获取n_top
+            n_top = scores.shape[-2]
+            
+            # 创建适用于scores的掩码 [n_top, L_Q]
+            # 这里我们只关注序列的前n_top个位置的掩码
+            causal_mask = attn_mask[:n_top, :L_Q]  # 形状 [n_top, L_Q]
+            
+            # 扩展到scores的维度 [B, H, n_top, L_Q]
+            causal_mask = causal_mask.unsqueeze(0).unsqueeze(0).expand(B, H, -1, -1)
+            
+            # 应用掩码到scores
+            scores.masked_fill_(causal_mask, -np.inf)
 
         attn = torch.softmax(scores, dim=-1)
 
@@ -86,7 +118,7 @@ class ProbAttention(nn.Module):
                    index, :] = torch.matmul(attn, V).type_as(context_in)
         
         if self.training:
-            attns = (torch.ones([B, H, L_V, L_V]) / L_V).type_as(attn).to(attn.device)
+            attns = (torch.ones([B, H, L_V, L_V], device=attn.device) / L_V).type_as(attn)
             attns[torch.arange(B)[:, None, None], torch.arange(H)[None, :, None], index, :] = attn
             return context_in, attns
         else:

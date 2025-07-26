@@ -4,7 +4,7 @@
 import torch
 import torch.nn as nn
 import numpy as np
-from torchdiffeq import odeint
+from torchdiffeq import odeint_adjoint as odeint
 from typing import Tuple, Optional
 
 
@@ -20,7 +20,7 @@ class LiquidNeuralNetwork(nn.Module):
                  input_size: int,
                  hidden_size: int = 64,
                  output_size: int = 1,
-                 ode_method: str = 'dopri5'):
+                 ode_method: str = 'euler'):
         """
         初始化液态神经网络
         
@@ -71,7 +71,7 @@ class LiquidNeuralNetwork(nn.Module):
         
         # 如果没有提供时间步，创建默认的时间步
         if time_steps is None:
-            time_steps = torch.linspace(0, 1, seq_length).to(x.device)
+            time_steps = torch.linspace(0, seq_length, seq_length + 1).to(x.device)
         
         # 对每个时间步进行处理
         for t in range(seq_length):
@@ -79,7 +79,13 @@ class LiquidNeuralNetwork(nn.Module):
             input_t = self.input_layer(x[:, t, :])
             
             # 液态层处理（通过ODE求解器）
-            h = self._solve_ode(h, input_t, time_steps[t] if t == 0 else time_steps[t] - time_steps[t-1])
+            # 修复：确保时间点是严格递增的
+            dt = time_steps[t+1] - time_steps[t]
+            # 确保dt为正数且不为0
+            if dt <= 0:
+                dt = torch.abs(dt) + 1e-6  # 添加小的正值确保严格递增
+                
+            h = self._solve_ode(h, input_t, dt)
             
             # 隐藏层到输出层
             output = self.output_layer(self.tanh(h))
@@ -101,14 +107,14 @@ class LiquidNeuralNetwork(nn.Module):
         Returns:
             更新后的隐藏状态
         """
-        # 定义时间点
-        t_points = torch.tensor([0, dt]).to(h.device)
+        # 定义时间点，确保是严格递增的
+        t_points = torch.tensor([0, torch.abs(dt).item()]).to(h.device)
         
         # 将输入添加到液态层
         self.liquid_layer.input = input_t
         
-        # 使用ODE求解器
-        h_sol = odeint(self.liquid_layer, h, t_points, method=self.ode_method)
+        # 使用ODE求解器，使用odeint_adjoint以节省内存
+        h_sol = odeint(self.liquid_layer, h, t_points, method=self.ode_method, adjoint_method=self.ode_method)
         
         # 返回最后一个时间点的解
         return h_sol[-1]
@@ -164,12 +170,13 @@ class LiquidODEFunc(nn.Module):
         
         # 计算输入对隐藏状态的影响
         if self.input is not None:
-            input_effect = torch.matmul(self.input, self.W_ih.t())
+            # 使用批量矩阵乘法提高效率
+            input_effect = torch.mm(self.input, self.W_ih.t())
         else:
             input_effect = 0
             
         # 计算隐藏状态的自反馈
-        hidden_effect = torch.matmul(self.tanh(h), self.W_hh.t())
+        hidden_effect = torch.mm(self.tanh(h), self.W_hh.t())
         
         # 计算dh/dt
         dhdt = (-h + hidden_effect + input_effect + self.bias) / self.tau

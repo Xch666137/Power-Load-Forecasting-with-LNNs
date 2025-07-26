@@ -27,16 +27,28 @@ def load_config(config_path):
     Returns:
         config: 配置字典
     """
+    print(f"[DEBUG] 当前工作目录: {os.getcwd()}")
+    print(f"[DEBUG] 基础路径: {base_path}")
+    
     # 如果是相对路径，则转换为绝对路径
     if not os.path.isabs(config_path):
         config_path = os.path.join(base_path, config_path)
     
+    print(f"[DEBUG] 解析后的配置文件路径: {config_path}")
+    
     if not os.path.exists(config_path):
         raise FileNotFoundError(f"配置文件不存在: {config_path}")
     
-    with open(config_path, 'r', encoding='utf-8') as f:
-        config = yaml.safe_load(f)
-    return config
+    try:
+        with open(config_path, 'r', encoding='utf-8') as f:
+            config = yaml.safe_load(f)
+        print(f"[DEBUG] YAML模块版本: {yaml.__version__}")
+        return config
+    except yaml.YAMLError as e:
+        raise ValueError(f"YAML格式错误: {e}")
+    except Exception as e:
+        print(f"[DEBUG] 未知错误类型: {type(e).__name__}")
+        raise
 
 
 def main():

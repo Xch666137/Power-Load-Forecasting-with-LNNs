@@ -3,6 +3,11 @@
 # 电力负荷预测系统 - 实验执行脚本
 # 提供简单的命令行接口来运行各种实验
 
+# 获取脚本所在目录
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# 获取项目根目录
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
 # 默认配置
 DEFAULT_CONFIG="configs/model_config.yaml"
 DEFAULT_EXPERIMENT="STSF"
@@ -49,14 +54,14 @@ show_help() {
 run_stsf() {
     local config_file=$1
     print_info "运行短时预测实验..."
-    python run.py --experiment STSF --config "$config_file"
+    python "$PROJECT_ROOT/run.py" --experiment STSF --config "$config_file"
 }
 
 # 运行模型对比实验
 run_model_comparison() {
     local config_file=$1
     print_info "运行模型对比实验..."
-    python run.py --experiment ModelComparison --config "$config_file"
+    python "$PROJECT_ROOT/run.py" --experiment ModelComparison --config "$config_file"
 }
 
 # 运行所有实验
@@ -92,6 +97,11 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+# 如果配置文件路径是相对路径，则相对于项目根目录
+if [[ "$CONFIG_FILE" != /* ]]; then
+    CONFIG_FILE="$PROJECT_ROOT/$CONFIG_FILE"
+fi
 
 # 检查配置文件是否存在
 if [ ! -f "$CONFIG_FILE" ]; then

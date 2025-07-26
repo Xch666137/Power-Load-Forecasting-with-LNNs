@@ -10,7 +10,8 @@ import os
 # 添加src目录到Python路径
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from src.models.liquid_neural_network import LiquidNeuralNetwork, LiquidLSTM
+from src.models.liquid_neural_network import LiquidNeuralNetwork
+from src.models.liquid_lstm import LiquidLSTM
 
 
 class TestLiquidNeuralNetwork(unittest.TestCase):

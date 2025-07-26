@@ -1,76 +1,84 @@
 # 液态神经网络电力负荷预测模型配置
 
 data:
-  # 数据集类型: custom, ETTh1, ETTh2, ETTm1, ETTm2
-  dataset_type: "custom"
+  # 数据集根路径
+  root_path: ./data/ETDataset/
   
-  # 数据文件路径 (对于ETT数据集，应指向相应的csv文件)
-  data_path: null
+  # 数据集类型: ETTh1, ETTh2, ETTm1, ETTm2
+  data: ETTm1
   
-  # 序列长度（历史时间步数）
-  sequence_length: 24
+  # 特征类型: S (单变量), M (多变量), MS (多变量预测单变量)
+  features: MS
   
-  # 预测步长（未来时间步数）
-  forecast_horizon: 1
+  # 目标变量
+  target: HUFL
   
-  # 时间特征
-  time_features:
-    - year
-    - month
-    - day
-    - hour
-    - dayofweek
-    - weekend
-    - quarter
+  # 输入序列长度
+  seq_len: 288
   
-  # 滞后特征
-  lag_features: [1, 2, 3, 24, 168]
+  # 标签序列长度
+  label_len: 96
   
-  # 滚动窗口特征
-  rolling_windows: [3, 6, 12, 24]
+  # 预测序列长度
+  pred_len: 96
+  
+  # 数据频率 (h: 小时, t: 分钟)
+  freq: t
+  
+  # 批次大小
+  batch_size: 64
+  
+  # 数据加载进程数
+  num_workers: 8
 
 model:
   # 模型类型: liquid_ode, lstm, liquid_lstm, transformer, informer, lnn_informer
-  type: liquid_ode
+  type: informer
   
   # 隐藏层大小
   hidden_size: 64
   
+  # LSTM/Transformer/Informer层数
+  num_layers: 2
+  
+  # Transformer/Informer头数
+  num_heads: 4
+  
+  # Liquid LSTM隐藏层大小
+  liquid_hidden_size: 128
+  
   # 学习率
-  learning_rate: 0.001
+  learning_rate: 0.0003
   
   # 训练轮数
   epochs: 100
   
   # 批次大小
-  batch_size: 32
+  batch_size: 64
+  
+  # Dropout比率
+  dropout: 0.1
   
   # ODE求解方法 (适用于liquid_ode)
-  ode_method: dopri5
+  ode_method: euler
   
-  # LSTM层数 (适用于lstm, liquid_lstm)
-  num_layers: 2
+  # 是否启用梯度裁剪
+  gradient_clipping: 1.0
   
-  # 注意力头数 (适用于transformer, informer, lnn_informer)
-  num_heads: 8
+  # 学习率调度器类型 (cosine, step, exponential)
+  lr_scheduler: cosine
   
-  # 液态网络隐藏层大小 (适用于lnn_informer)
-  liquid_hidden_size: 32
+  # 学习率衰减步长 (当使用step调度器时)
+  lr_step_size: 30
+  
+  # 学习率衰减因子 (当使用step或exponential调度器时)
+  lr_gamma: 0.1
+  
+  # Informer模型特有参数
+  # ProbAttention中的采样因子
+  factor: 5
 
-training:
-  # 验证集比例
-  validation_split: 0.2
-  
-  # 是否打乱数据
-  shuffle: True
-
-evaluation:
-  # 评估指标
-  metrics:
-    - MAE
-    - RMSE
-    - MAPE
-    - NMAE
-    - R2
-    - DA
-    - Theil_U
+# 是否使用自动混合精度训练
+# 注意：对于液态神经网络(liquid_ode, liquid_lstm)模型，AMP可能会降低训练效率
+# 建议仅对传统模型如LSTM、Transformer等启用
+use_amp: True

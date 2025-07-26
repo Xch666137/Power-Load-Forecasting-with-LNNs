@@ -16,8 +16,7 @@ from .code import evaluate
 from .code import visualize
 
 # 使用标准导入
-from src.data_provider.data_loader import load_power_data
-from src.data_provider.preprocessing import preprocess_power_data, PowerLoadPreprocessor
+from src.data_provider.data_loader import data_provider
 
 
 class ExpSTSF(ExpBase):
@@ -76,38 +75,46 @@ class ExpSTSF(ExpBase):
         """
         print("\n1-4. 数据加载和预处理...")
 
+        # 创建一个模拟的args对象，用于传递给data_provider
+        class Args:
+            def __init__(self, config):
+                data_config = config.get('data', {})
+                self.root_path = data_config.get('root_path', './data/ETDataset/')
+                self.data = data_config.get('data', 'ETTh1')
+                self.features = data_config.get('features', 'M')
+                self.target = data_config.get('target', 'OT')
+                self.seq_len = data_config.get('seq_len', 96)
+                self.label_len = data_config.get('label_len', 48)
+                self.pred_len = data_config.get('pred_len', 24)
+                self.freq = data_config.get('freq', 'h')
+                self.batch_size = data_config.get('batch_size', 32)
+                self.num_workers = data_config.get('num_workers', 4)  # 增加num_workers以提高数据加载效率
+                self.pin_memory = data_config.get('pin_memory', True)  # 添加pin_memory以加速GPU数据传输
+                self.drop_last = data_config.get('drop_last', True)  # 添加drop_last以提高batch处理效率
+
+        args = Args(config)
         
-        # 加载数据
-        features, target = load_power_data()
+        # 加载训练数据
+        train_dataset, train_loader = data_provider(args, 'train')
         
-        # 预处理数据
-        # 注意：这里需要根据实际数据结构调整
-        data = features.copy()
-        # 假设target是单独的一列，我们需要将其添加到数据中
-        if len(target.columns) > 0:
-            target_col = target.columns[0]
-            data[target_col] = target[target_col]
+        # 加载验证数据
+        val_dataset, val_loader = data_provider(args, 'val')
         
-        processed_data = preprocess_power_data(data)
-        
-        # 准备序列数据
-        preprocessor = PowerLoadPreprocessor()
-        X, y = preprocessor.prepare_sequences(processed_data)
-        
-        # 分割数据集
-        # 先分割出测试集
-        X_temp, X_test, y_temp, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-        # 再从剩余数据中分割出训练集和验证集
-        X_train, X_val, y_train, y_val = train_test_split(X_temp, y_temp, test_size=0.25, random_state=42)  # 0.25 x 0.8 = 0.2
+        # 加载测试数据
+        test_dataset, test_loader = data_provider(args, 'test')
         
         self.data = {
-            "X_train": X_train,
-            "y_train": y_train,
-            "X_val": X_val,
-            "y_val": y_val,
-            "X_test": X_test,
-            "y_test": y_test
+            "train_loader": train_loader,
+            "val_loader": val_loader,
+            "test_loader": test_loader,
+            "train_dataset": train_dataset,
+            "val_dataset": val_dataset,
+            "test_dataset": test_dataset
         }
+        
+        print(f"训练集大小: {len(train_dataset)}")
+        print(f"验证集大小: {len(val_dataset)}")
+        print(f"测试集大小: {len(test_dataset)}")
         
     def _train_model(self, config):
         """
@@ -117,22 +124,18 @@ class ExpSTSF(ExpBase):
             config: 配置参数
             
         Returns:
-            trained_model: 训练好的模型
-            history: 训练历史
+            tuple: (训练好的模型, 训练历史)
         """
-        print("\n5-6. 模型创建和训练...")
-
+        print("\n2. 模型训练...")
         
-        # 获取训练数据
-        X_train = self.data["X_train"]
-        y_train = self.data["y_train"]
-        X_val = self.data["X_val"]
-        y_val = self.data["y_val"]
+        # 直接使用数据加载器而不是提取numpy数组
+        train_loader = self.data["train_loader"]
+        val_loader = self.data["val_loader"]
         
-        # 训练模型
-        model, history = train.train_model_task(config, X_train, y_train, X_val, y_val)
+        # 模型训练逻辑将在这里实现
+        model, history = train.train_model_task_with_dataloader(config, train_loader, val_loader)
         return model, history
-        
+
     def _evaluate_model(self, model):
         """
         评估模型
@@ -141,19 +144,17 @@ class ExpSTSF(ExpBase):
             model: 训练好的模型
             
         Returns:
-            metrics: 评估指标
-            y_pred: 预测结果
+            tuple: (评估指标, 预测结果)
         """
-        print("\n7. 模型评估...")
+        print("\n3. 模型评估...")
         
-        # 获取测试数据
-        X_test = self.data["X_test"]
-        y_test = self.data["y_test"]
+        # 获取测试数据加载器
+        test_loader = self.data["test_loader"]
         
-        # 评估模型
-        metrics, y_pred = evaluate.evaluate_model_task(model, X_test, y_test)
+        # 模型评估逻辑将在这里实现
+        metrics, y_pred = evaluate.evaluate_model_task_with_dataloader(model, test_loader)
         return metrics, y_pred
-        
+
     def _visualize_results(self, history, metrics, y_pred):
         """
         可视化结果
@@ -163,16 +164,11 @@ class ExpSTSF(ExpBase):
             metrics: 评估指标
             y_pred: 预测结果
         """
-        print("\n8. 结果可视化...")
+        print("\n4. 结果可视化...")
+        
+        # 结果可视化逻辑将在这里实现
+        visualize.visualize_results_task(history, metrics, y_pred)
 
-        
-        # 获取测试数据
-        X_test = self.data["X_test"]
-        y_test = self.data["y_test"]
-        
-        # 结果可视化
-        visualize.visualize_results_task(history, y_test, y_pred)
-        
     def _version_control(self, config):
         """
         版本控制
@@ -180,7 +176,7 @@ class ExpSTSF(ExpBase):
         Args:
             config: 配置参数
         """
-        print("\n9. 实验版本控制...")
-        from .code import version_control
-        version_id = version_control.ExperimentVersionControl().create_version(config, "短时预测实验")
-        print(f"实验版本已创建: {version_id}")
+        print("\n5. 版本控制...")
+        
+        # 版本控制逻辑将在这里实现
+        # 这里可以保存配置、模型权重、结果等
